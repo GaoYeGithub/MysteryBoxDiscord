@@ -56,6 +56,56 @@ async def open_mystery_box(interaction: discord.Interaction):
         else:
             await interaction.followup.send(f'Sorry, that\'s incorrect. The correct answer was: {box["answer"]}')
 
+@client.tree.command()
+async def view_mystery_boxes(interaction: discord.Interaction):
+    """View all mystery boxes"""
+    async with aiohttp.ClientSession() as session:
+        async with session.get('http://localhost:8090/api/collections/mystery_boxes/records') as response:
+            data = await response.json()
+            boxes = data['items']
+
+    if not boxes:
+        await interaction.response.send_message("No mystery boxes found.")
+        return
+
+    embeds = []
+    for box in boxes:
+        embed = discord.Embed(title=f"Mystery Box: {box['title']}", description=box['description'], color=0x00ff00)
+        embed.add_field(name="Question", value=box['question'], inline=False)
+        embed.add_field(name="Rarity", value=box['rarity'], inline=True)
+        embed.add_field(name="Created", value=box['created'], inline=True)
+        embed.set_image(url=box['image'])
+        embeds.append(embed)
+
+    await interaction.response.send_message(embeds=embeds)
+
+@client.tree.command()
+@app_commands.describe(
+    title="Title of the mystery box",
+    question="Question for the mystery box",
+    answer="Answer to the question",
+    description="Description of the mystery box",
+    rarity="Rarity of the mystery box",
+    image="URL of the image for the mystery box"
+)
+async def add_mystery_box(interaction: discord.Interaction, title: str, question: str, answer: str, description: str, rarity: str, image: str):
+    """Add a new mystery box"""
+    new_box = {
+        "title": title,
+        "question": question,
+        "answer": answer,
+        "description": description,
+        "rarity": rarity,
+        "image": image
+    }
+
+    async with aiohttp.ClientSession() as session:
+        async with session.post('http://localhost:8090/api/collections/mystery_boxes/records', json=new_box) as response:
+            if response.status == 200:
+                await interaction.response.send_message(f"Mystery box '{title}' has been added successfully!")
+            else:
+                await interaction.response.send_message("Failed to add the mystery box. Please try again.")
+
 @client.event
 async def on_ready():
     print(f'Logged in as {client.user} (ID: {client.user.id})')
